@@ -1,0 +1,233 @@
+SonarQube Installation 
+
+SonarQube provides the capability to not only show health of an application but also to highlight issues newly introduced. With a Quality Gate in place, you can fix the leak and therefore improve code quality systematically. 
+
+Prerequisites 
+
+Java-11( As at the time of installation, only version 11 supports sonarqube 8 and above.  
+
+Database ( MySQL is Deprecated so we are going to focus on PostgresSQL-10) 
+
+Prepare the instance for installation 
+
+If you are using it for test environment, you can shut down firewall and selinux 
+
+Yum install epel-release -y 
+
+Yum update -y 
+
+Yum install java-11 -y 
+
+ 
+
+DATABASE INSTALLATION (POSTGRES DB) 
+
+ 
+
+$ sudo yum install https://download.postgresql.org/pub/repos/yum/10/redhat/rhel-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm -y 
+
+ 
+
+$ sudo yum install postgresql10-server postgresql10-contrib -y 
+
+$ sudo /usr/pgsql-10/bin/postgresql-10-setup initdb 
+
+$ sudo vi /var/lib/pgsql/10/data/pg_hba.conf 
+
+Find below lines at the bottom of the file and change peer to trust and ident to md5 on local, ipv4 and ipv6 connections 
+
+peer  change to trust 
+
+ident change to md5 
+
+Start PostgreSQL Database server 
+
+$ sudo systemctl start postgresql-10 
+
+Enable it to start automatically at System Startup 
+
+$ sudo systemctl enable postgresql-10 
+
+Change the password for the default PostgreSQL user. 
+
+$ sudo passwd postgres 
+
+Switch to the postgres user. 
+
+su - postgres 
+
+Create a new user by typing: 
+
+createuser sonar 
+
+Switch to the PostgreSQL shell. 
+
+psql 
+
+Set a password for the newly created user for SonarQube database. 
+
+ALTER USER sonar WITH ENCRYPTED password 'sonar'; 
+
+Create a new database for PostgreSQL database by running: 
+
+CREATE DATABASE sonarqubedb OWNER sonar; 
+
+ 
+
+Exit from the psql shell: 
+
+\q 
+
+Switch back to the sudo user by running the exit command. 
+
+Exit 
+
+ 
+
+Now That DB Setup Is Completed, Let's Move On To SONARQUBE Installation & Configuration 
+
+Download stable SonarQube version from below website. 
+
+Website:?https://www.sonarqube.org/downloads/ 
+
+Note: This Article written for SonarQube version 
+
+Download & unzip SonarQube Latest Version 
+
+# cd /opt# wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-8.1.0.31237.zip 
+
+# unzip sonarqube-8.1.0.31237.zip 
+
+# mv /opt/sonarqube-8.1.0.31237 /opt/sonarqube 
+
+Create new user give ownership to /opt/sonarqube directory 
+
+ # useradd sonar 
+
+Now you have to give the user sonar, a sudo access by using the following command 
+
+#visudo 
+
+Go to the line root  ALL=(ALL)  ALL and edit it to be  
+
+sonar ALL=(ALL) NOPASSWD:ALL 
+
+ # chown -R sonar:sonar /opt/sonarqube 
+
+Make the sonarqube folder executable by using this command 
+
+# chmod -R 775 /opt/sonarqube 
+
+Now to start sonar, we have to switch user to sonar 
+
+# su -sonar 
+
+Then go into the path below 
+
+# cd /opt/sonarqube/bin/linux-x86-64/ 
+
+ 
+
+./sonar.sh start 
+
+CONFIGURE SONARQUBEDB WITH THE SONARQUBE 
+
+ 
+
+Edit the following directory  
+
+ 
+
+# vim /opt/sonarqube/conf/sonar.properties 
+
+ 
+
+Lookout for the following properties, uncommment and edit as follows 
+
+ 
+
+ - sonar.jdbc.username=`sonarqubedb 
+
+  - sonar.jdbc.password=`password` 
+
+  - sonar.jdbc.url=jdbc:postgresql://ip-address/sonar 
+
+ -sonar.web=0.0.0.0 
+
+  -sonar.context=/sonar 
+
+ 
+
+Configure Systemd service 
+
+Create a systemd service file for SonarQube to run as System Startup. 
+
+Add the below lines, 
+
+vi /etc/systemd/system/sonarqube.service 
+
+[Unit] 
+
+Description=SonarQube service 
+
+After=syslog.target network.target 
+
+ 
+
+[Service] 
+
+Type=forking 
+
+ 
+
+ExecStart=/opt/sonarqube/bin/linux-x86-64/sonar.sh start 
+
+ExecStop=/opt/sonarqube/bin/linux-x86-64/sonar.sh stop 
+
+ 
+
+User=sonar 
+
+Group=sonar 
+
+Restart=always 
+
+ 
+
+LimitNOFILE=65536 
+
+LimitNPROC=4096 
+
+ 
+
+[Install] 
+
+WantedBy=multi-user.target 
+
+Save and close the above file. 
+
+Stop existing sonarqube run that was trigger by sonar and login as "root" to rerun sonar as a server . Start the Sonarqube daemon by running: 
+
+# sudo systemctl start sonarqube.service 
+
+Enable the SonarQube service to automatically at boot time System Startup. 
+
+# sudo systemctl enable sonar 
+
+Check if the sonarqube service is running, 
+
+# sudo systemctl status sonar 
+
+SonarQube application uses port 9000. access SonarQube from browser 
+
+  http://<YourIP OR Hostname>:9000 
+
+username: admin 
+
+password: admin 
+
+Troubleshooting 
+
+Check whether you enabled port 9000 in instance security group 
+
+Check whether you enabled instance IP range in security group 
